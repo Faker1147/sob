@@ -1,0 +1,116 @@
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
+/**
+ * vim: set ts=4 :
+ * =============================================================================
+ * SourceMod (C)2004-2008 AlliedModders LLC.  All rights reserved.
+ * =============================================================================
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License, version 3.0, as published by the
+ * Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * As a special exception, AlliedModders LLC gives you permission to link the
+ * code of this program (as well as its derivative works) to "Half-Life 2," the
+ * "Source Engine," the "SourcePawn JIT," and any Game MODs that run on software
+ * by the Valve Corporation.  You must obey the GNU General Public License in
+ * all respects for all other code used.  Additionally, AlliedModders LLC grants
+ * this exception to all derivative works.  AlliedModders LLC defines further
+ * exceptions, found in LICENSE.txt (as of this writing, version JULY-31-2007),
+ * or <http://www.sourcemod.net/license.php>.
+ *
+ * Version: $Id$
+ */
+
+#pragma push_macro("clamp") //Fix for C++17 [APG]RoboCop[CL]
+#undef clamp
+#include <algorithm>
+#pragma pop_macro("clamp")
+
+#include "sob/tf2/conditions.h"
+#include "sob/entprops.h"
+#include "sob/logging.h"
+
+static CTF2Conditions s_tf2_conditions;
+CTF2Conditions *tf2_conditions = &s_tf2_conditions;
+
+constexpr int CONDITION_BITS = 32;
+
+/// @brief Checks if the player is in a specific condition
+/// @param client Client/Player entity index to check
+/// @param cond Condition number to check
+/// @return TRUE if the given condition is active on the player
+bool CTF2Conditions::TF2_IsPlayerInCondition(const int client, const TFCond cond)
+{
+	const int iCond = cond;
+
+	switch (iCond / CONDITION_BITS)
+	{
+		case 0:
+		{
+			const int bit = 1 << iCond;
+			if ((entprops->GetEntProp(client, Prop_Send, "m_nPlayerCond") & bit) == bit)
+			{
+				return true;
+			}
+
+			if ((entprops->GetEntProp(client, Prop_Send, "_condition_bits") & bit) == bit)
+			{
+				return true;
+			}
+			break;
+		}
+		case 1:
+		{
+			const int bit = (1 << (iCond - CONDITION_BITS));
+			if ((entprops->GetEntProp(client, Prop_Send, "m_nPlayerCondEx") & bit) == bit)
+			{
+				return true;
+			}
+			break;
+		}
+		case 2:
+		{
+			const int bit = (1 << (iCond - (CONDITION_BITS * 2)));
+			if ((entprops->GetEntProp(client, Prop_Send, "m_nPlayerCondEx2") & bit) == bit)
+			{
+				return true;
+			}
+			break;
+		}
+		case 3:
+		{
+			const int bit = (1 << (iCond - (CONDITION_BITS * 3)));
+			if ((entprops->GetEntProp(client, Prop_Send, "m_nPlayerCondEx3") & bit) == bit)
+			{
+				return true;
+			}
+			break;
+		}
+		case 4:
+		{
+			const int bit = (1 << (iCond - (CONDITION_BITS * 4)));
+			if ((entprops->GetEntProp(client, Prop_Send, "m_nPlayerCondEx4") & bit) == bit)
+			{
+				return true;
+			}
+			break;
+		}
+		default:
+		{
+			logger->Log(LogLevel::ERROR, "Invalid TFCond value %d", iCond);
+			return false;
+			//break;
+		}
+	}
+
+	return false;
+}

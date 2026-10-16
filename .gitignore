@@ -1,0 +1,29 @@
+# Build outputs
+build/
+build_linux/
+premake_build/
+
+utils/SOB_meta/Debug
+utils/SOB_meta/.vs
+utils/SOB_meta/x64
+utils/SOB_meta/x64/Release
+utils/SOB_meta/x64/Release_NonHomeFolder
+utils/SOB_meta/SOBMeta
+utils/SOB_meta/HPB_Bot2.vcxproj.filters
+utils/SOB_meta/Release_NonHomeFolder
+
+# SourceMod compiled plugins
+*.smx
+
+# Misc
+*.ipch
+*.db
+*.suo
+*.user
+apg-load
+*.obj
+*.sbr
+
+# Visual Studio code
+.vscode/
+*.code-workspace

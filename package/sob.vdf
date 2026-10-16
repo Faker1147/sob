@@ -1,0 +1,6 @@
+"Metamod Plugin"
+{
+	"alias"			"sob"
+	"file"			"addons/sob/bin/SOBMeta"
+	"sobpath"		"addons/sob/"
+}

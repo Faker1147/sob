@@ -1,0 +1,141 @@
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
+/*
+ *    This file is part of SOB.
+ *
+ *    SOB by Paul Murphy adapted from Botman's HPB Bot 2 template.
+ *
+ *    SOB is free software; you can redistribute it and/or modify it
+ *    under the terms of the GNU General Public License as published by the
+ *    Free Software Foundation; either version 2 of the License, or (at
+ *    your option) any later version.
+ *
+ *    SOB is distributed in the hope that it will be useful, but
+ *    WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *    General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with SOB; if not, write to the Free Software Foundation,
+ *    Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ *    In addition, as a special exception, the author gives permission to
+ *    link the code of this program with the Half-Life Game Engine ("HL
+ *    Engine") and Modified Game Libraries ("MODs") developed by Valve,
+ *    L.L.C ("Valve").  You must obey the GNU General Public License in all
+ *    respects for all of the code used other than the HL Engine and MODs
+ *    from Valve.  If you modify this file, you may extend this exception
+ *    to your version of the file, but you are not obligated to do so.  If
+ *    you do not wish to do so, delete this exception statement from your
+ *    version.
+ *
+ */
+#include <cstdio>
+#include <cstdlib>
+
+#include "bot_navigator.h"
+#include "bot_waypoint.h"
+
+//#include "nav_mesh.h"
+
+CNavMeshNavigator::CNavMeshNavigator()
+{
+	// Create a new instance of the NavMesh class
+	//m_theNavMesh = new CNavMesh();
+}
+
+CNavMeshNavigator::~CNavMeshNavigator()
+{
+	// Clean up the NavMesh instance
+	//delete m_theNavMesh;
+}
+
+void CNavMeshNavigator::CalculateRoute(Vector startNodeID, Vector goalNodeID)
+{
+	// Call the CalculateRoute function from the NavMesh class
+	//m_theNavMesh->CalculateRoute(vFrom, vTo);
+
+	// Since we can't determine success, we assume the route was successfully calculated
+	//*bFail = false;
+
+	// Calculate the route
+	//m_theNavMesh->CalculateRoute(startNodeID, goalNodeID);
+}
+
+bool CNavMeshNavigator::workRoute(const Vector& vFrom, const Vector& vTo, bool* bFail, const bool bRestart, const bool bNoInterruptions, const int
+                                  iGoalId, const int iConditions, const int iDangerId)
+{
+    // Try to find a route using the primary waypoint system
+	/*bool routeFound = false; // logic to find a route using the primary waypoint system
+	
+    // If a route was not found using the primary waypoint system
+    if (!routeFound)
+    {
+        // Use the NavMesh as a backup
+        CalculateRoute(vFrom, vTo);
+		routeFound = true; // Assume the route was successfully calculated
+
+		// Now, you can check if the NavMesh has a valid route
+		//if (routeFound && m_theNavMesh->routeFound())
+		//{
+		//	// Perform additional logic or use the calculated route from the NavMesh
+		//	while (hasNextPoint())
+		//	{
+		//		getNextPoint();
+		//		// Use navMeshWaypoint as needed
+		//		// ...
+		//	}
+		//}
+    }
+
+	// Continue with the rest of your navigation logic
+	return routeFound;*/
+	return false;
+}
+
+Vector CNavMeshNavigator::getNextPoint()
+{
+	// Get the next point from the calculated route using Nav Mesh
+	//return m_theNavMesh->GetNextRoutePoint();
+	return { 0,0,0 };
+}
+
+void CNavMeshNavigator::updatePosition()
+{
+    // Update the bot's position during navigation using Nav Mesh
+	//m_theNavMesh->botPosition(currentPosition); // Use the botPosition function to update the bot's position
+	
+	// Update the bot's position
+	//m_theNavMesh->UpdatePosition(m_pBot->pEdict->v.origin);
+}
+
+void CNavMeshNavigator::freeMapMemory()
+{
+    // Free the memory used by the NavMesh
+	//m_theNavMesh->freeMemory();
+}
+
+void CNavMeshNavigator::freeAllMemory()
+{
+    // Free the memory used by the NavMesh
+	//m_theNavMesh->freeMemory();
+}
+
+bool CNavMeshNavigator::routeFound()
+{
+	// Check if a route has been successfully calculated by the NavMesh
+	//return m_theNavMesh->routeFound();
+	return false;
+}
+
+bool CNavMeshNavigator::hasNextPoint()
+{
+	// Check if there are more points in the calculated route
+	//return m_theNavMesh->HasNextRoutePoint();
+	return false;
+}
+
+void CNavMeshNavigator::init()
+{
+	//m_theNavMesh->Reset();
+}

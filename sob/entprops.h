@@ -1,0 +1,169 @@
+/**
+ * vim: set ts=4 :
+ * =============================================================================
+ * Copyright (C) 2004-2010 AlliedModders LLC.  All rights reserved.
+ * =============================================================================
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License, version 3.0, as published by the
+ * Free Software Foundation.
+ * 
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * As a special exception, AlliedModders LLC gives you permission to link the
+ * code of this program (as well as its derivative works) to "Half-Life 2," the
+ * "Source Engine," the "SourcePawn JIT," and any Game MODs that run on software
+ * by the Valve Corporation.  You must obey the GNU General Public License in
+ * all respects for all other code used.  Additionally, AlliedModders LLC grants
+ * this exception to all derivative works.  AlliedModders LLC defines further
+ * exceptions, found in LICENSE.txt (as of this writing, version JULY-31-2007),
+ * or <http://www.sourcemod.net/license.php>.
+ *
+ */
+#ifndef __SOB_ENTPROPS_H__
+#define __SOB_ENTPROPS_H__
+
+#include "bot_plugin_meta.h"
+#include "bot_const.h"
+#include <dt_send.h>
+#include <IGameHelpers.h>
+#include <server_class.h>
+#include <cstdint>
+
+enum : std::uint32_t
+{
+	INVALID_ENT_REFERENCE = 0xFFFFFFFF // TODO: replace magic number [APG]RoboCop[CL]
+};
+
+enum PropType : std::uint8_t
+{
+	Prop_Send = 0,
+	Prop_Data
+};
+
+class CBotEntProp
+{
+public:
+	void Init(bool reset = false);
+	// True once SOB's SourceMod extension is loaded and the entity-property
+	// helpers (sm_gamehelpers et al.) are valid. The bot AI runs on Metamod's
+	// GameFrame hook, which can fire before the SM extension is ready, so callers
+	// on that path must check this before using any GetEntProp*/SetEntProp* call [APG]RoboCop[CL]
+	bool isAvailable() const;
+	int GetEntProp(int entity, PropType proptype, const char *prop, int size = 4, int element = 0);
+	int *GetEntPropPointer(int entity, PropType proptype, const char *prop, int size = 4, int element = 0);
+	bool GetEntPropBool(int entity, PropType proptype, const char *prop, int element = 0);
+	bool *GetEntPropBoolPointer(int entity, PropType proptype, const char *prop, int element = 0);
+	bool SetEntProp(int entity, PropType proptype, const char *prop, int value, int size = 4, int element = 0);
+	float GetEntPropFloat(int entity, PropType proptype, const char *prop, int element = 0);
+	float *GetEntPropFloatPointer(int entity, PropType proptype, const char *prop, int element = 0);
+	bool SetEntPropFloat(int entity, PropType proptype, const char *prop, float value, int element = 0);
+	int GetEntPropEnt(int entity, PropType proptype, const char *prop, int element = 0);
+	bool SetEntPropEnt(int entity, PropType proptype, const char *prop, int other, int element = 0);
+	Vector GetEntPropVector(int entity, PropType proptype, const char *prop, int element = 0);
+	Vector *GetEntPropVectorPointer(int entity, PropType proptype, const char *prop, int element = 0);
+	bool SetEntPropVector(int entity, PropType proptype, const char *prop, const Vector& value, int element = 0);
+	char *GetEntPropString(int entity, PropType proptype, const char* prop, int maxlen, std::size_t* len, int element = 0);
+	bool SetEntPropString(int entity, PropType proptype, const char *prop, const char *value, int element = 0);
+	int GetEntData(int entity, int offset, int size = 4);
+	bool SetEntData(int entity, int offset, int value, int size = 4, bool changeState = false);
+	float GetEntDataFloat(int entity, int offset);
+	bool SetEntDataFloat(int entity, int offset, float value, bool changeState = false);
+	int GetEntDataEnt(int entity, int offset);
+	bool SetEntDataEnt(int entity, int offset, int value, bool changeState = false);
+	Vector GetEntDataVector(int entity, int offset);
+	bool SetEntDataVector(int entity, int offset, const Vector& value, bool changeState = false);
+	char *GetEntDataString(int entity, int offset, int maxlen, std::size_t* len);
+	bool SetEntDataString(int entity, int offset, const char *value, int maxlen, bool changeState = false);
+	int GameRules_GetProp(const char *prop, int size = 4, int element = 0) const;
+	float GameRules_GetPropFloat(const char *prop, int element = 0) const;
+	int GameRules_GetPropEnt(const char *prop, int element = 0) const;
+	Vector GameRules_GetPropVector(const char *prop, int element = 0) const;
+	char *GameRules_GetPropString(const char* prop, std::size_t* len, int maxlen, int element = 0) const;
+	RoundState GameRules_GetRoundState() const;
+
+private:
+	bool IsNetworkedEntity(CBaseEntity *pEntity);
+	edict_t *BaseEntityToEdict(CBaseEntity *pEntity);
+	bool FindSendProp(SourceMod::sm_sendprop_info_t *info, CBaseEntity *pEntity, const char *prop, int entity);
+	int MatchTypeDescAsInteger(_fieldtypes type, int flags);
+	bool IndexToAThings(int num, CBaseEntity **pEntData, edict_t **pEdictData);
+	// Logs an "entity invalid" error, silently no-op when the entprop layer
+	// isn't available yet (avoids a null-deref + log spam on that path) [APG]RoboCop[CL]
+	void logEntityInvalid(int ref) const;
+	CBaseEntity *GetEntity(int entity);
+	CBaseEntity *GetGameRulesProxyEntity();
+
+	const char* grclassname = nullptr; // game rules proxy net class
+	bool initialized = false;
+};
+
+inline int CBotEntProp::MatchTypeDescAsInteger(const _fieldtypes type, const int flags)
+{
+	switch (type)
+	{
+	case FIELD_TICK:
+	case FIELD_MODELINDEX:
+	case FIELD_MATERIALINDEX:
+	case FIELD_INTEGER:
+	case FIELD_COLOR32:
+		return 32;
+	case FIELD_CUSTOM:
+		if ((flags & FTYPEDESC_OUTPUT) == FTYPEDESC_OUTPUT)
+		{
+			// Variant, read as int32.
+			return 32;
+		}
+		break;
+	case FIELD_SHORT:
+		return 16;
+	case FIELD_CHARACTER:
+		return 8;
+	case FIELD_BOOLEAN:
+		return 1;
+	default:
+		return 0;
+	}
+
+	return 0;
+}
+
+/// @brief Converts a CBaseEntity to an edict_t
+/// @param pEntity CBaseEntity pointer
+/// @return edict_t pointer
+inline edict_t *CBotEntProp::BaseEntityToEdict(CBaseEntity *pEntity)
+{
+	IServerUnknown *pUnk = reinterpret_cast<IServerUnknown*>(pEntity);
+	const IServerNetworkable *pNet = pUnk->GetNetworkable();
+
+	if (!pNet)
+	{
+		return nullptr;
+	}
+
+	return pNet->GetEdict();
+}
+
+/// @brief Gets a CBaseEntity from an entity index
+/// @param entity Entity/Edict index
+/// @return CBaseEntity pointer
+inline CBaseEntity *CBotEntProp::GetEntity(const int entity)
+{
+	CBaseEntity *pEntity;
+	if (!IndexToAThings(entity, &pEntity, nullptr))
+	{
+		return nullptr;
+	}
+
+	return pEntity;
+}
+
+extern CBotEntProp *entprops;
+
+#endif

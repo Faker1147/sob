@@ -1,0 +1,272 @@
+######### General Settings ########
+#
+# General difficulty of the bots. 0.5 = stock, < 0.5 easier, > 0.5 = harder -Broken!
+# Not used - DNA.styx
+# sob_skill 0.8
+#
+# If set to 1 will make every bot skill and reaction much higher
+sob_supermode 0
+#
+# The time in seconds for bots to be added after another
+sob_addbottime 5
+#
+# If 1 , bots will all move forward
+sob_dont_move 0
+#
+# Rate for bots to defend
+sob_defrate 0.2
+#
+# Smaller number will make bots turn slower (1 = instant turn but may overshoot)
+sob_anglespeed 0.25
+#
+# Bots strafe side-to-side during ranged firefights to be harder to hit (0 = stand still)
+# Not applied to Counter-Strike (recoil widens with movement)
+sob_ranged_strafe 1
+#
+# Radius in units for bots to avoid things
+sob_avoid_radius 80
+#
+# Strength of avoidance (0 = disable)
+sob_avoid_strength 100
+#
+# (0 = no smoothing) -Broken!
+sob_aimsmoothing 0
+#
+# How many revs the bot searches for visible players and enemies, lower to reduce cpu usage
+# Replaced by visionticks_clients setting in profile .ini files - DNA.styx
+# sob_visrevs_clients 3
+#
+# How many revs the bot searches for visible monsters, lower to reduce cpu usage
+# Replaced by visionticks setting in profile .ini files - DNA.styx
+# sob_visrevs 6
+#
+# How many revs the bot searches for a path each frame, lower to reduce cpu usage, but causes bots to stand still more
+# Replaced by pathticks setting in profile .ini files - DNA.styx
+# sob_pathrevs 30
+#
+# The fov dot product before the bot shoots an enemy 0.7 = 45 degrees
+sob_enemyshootfov 0.97
+#
+# Bots change classes at random intervals - Required to prevent DoDS crashes
+sob_change_classes 0
+#
+# Bots mess around at start up
+sob_messaround 1
+#
+# If 1 bots will only use melee weapons
+sob_melee_only 0
+#
+# Minimum time for bots to consider changing class (seconds)
+sob_min_cc_time 60
+#
+# Maximum time for bots to consider changing class (seconds)
+sob_max_cc_time 240
+#
+# Bots use voice commands e.g. medic/spy etc
+sob_voice_cmds 1
+#
+# Bots don't shoot the host - useful for testing waypoints
+sob_notarget 0
+#
+# Max distance a bot charges to melee when it has no usable ranged weapon (lower = less melee-rushing)
+sob_melee_fallback_dist 150 
+#
+# Distance for autowaypoints to be placed - useful for adding waypoints
+sob_autowpt_dist 150.0
+#
+# Length for waypoints to automatically add paths at
+sob_wpt_pathdist 400
+#
+# Show welcome message on player connect
+sob_show_welcome_msg 1
+#
+######## DoDS Settings ########
+#
+# Free for all mode -- bots shoot everyone
+sob_ffa 0
+#
+# Bots don't capture flags in DOD:S
+sob_dontcapture 0
+#
+# Bots will form their own squads via voice commands
+sob_bots_form_squads 1
+#
+# Time for bots to do other things if squad leader is idle for a short time
+sob_squad_idle_time 3
+#
+# The percentage of time bots make squads with other bots
+sob_bot_squads_percent 50
+#
+# If 1 bots only prone in DOD:S when they have an enemy
+sob_prone_enemy_only 1
+#
+# Tweaks the bots knowledge of projectiles and gravity
+sob_projtweak 0.05
+#
+# If 1, bots will shoot breakable objects
+sob_shoot_breakables 1
+#
+# The distance bots will shoot breakables at
+sob_shoot_breakable_dist 128.0
+#
+# The cosine of the angle bots should worry about breaking objects at (default = 0.9) ~= 25 degrees
+sob_shoot_breakable_cos 0.9
+#
+####### HL2DM Settings #######
+#
+# The distance from an obstacle the bot will jump
+sob_jump_obst_dist 80
+#
+# The fov dot product before the bot shoots an enemy 0.98 = 11 degrees
+sob_enemyshoot_gravgun_fov 0.98
+#
+######## Fortres Forever Settings ########
+#
+# Fortress Forever bots throw primary (frag) hand grenades at enemies
+sob_ff_grenades 1
+# FF bot grenade cook/hold time (s) before throwing; clamped 0.6..3.0 (fuse is 3.81s)
+sob_ff_grenade_cook 1.8
+# Chance 0..1 an FF bot throws a grenade when a valid opportunity arises
+sob_ff_grenade_chance 0.5
+# FF assault cannon aim scatter per unit of target distance (0 = pinpoint)
+sob_ff_ac_spread 0.05
+# FF sniper-rifle charge/hold time (s) before the shot is released; clamped 0.5..5.0 (full charge is 5.0s)
+sob_ff_sniper_charge 2.0
+# FF bots bunnyhop while travelling out of combat (0 = always run)
+sob_ff_bunnyhop 1
+#
+######## TF2 Settings ########
+#
+# Enable/disable bots taunting
+sob_taunt 0
+#
+# Debug command : allow spy bots to cloak and disguise
+sob_tf2_debug_spies_cloakdisguise 1
+#
+# Time for medic to let go of medigun to switch players
+sob_tf2_medic_letgotime 0.5
+#
+# Time that the bots will spend more attention to the cap point if attacked
+sob_tf2_prot_cap_time 12.5
+#
+# The percentage (0.25 = 25%) that bots defend the capture point by standing on the point
+sob_tf2_protect_cap_percent 0.25
+#
+# The distance for spy bots to attack players capturing a point
+sob_tf2_spy_kill_on_cap_dist 200.0
+#
+# Time to automatically update points in TF2 for any changes
+sob_tf2_autoupdate_point_time 60
+#
+# Distance for payload bomb to be greater than at cap before defend team retreats
+sob_tf2_payload_dist_retreat 512.0
+#
+# Ammo must be above this to airblast -- if 200 airblast will be disabled
+sob_tf2_pyro_airblast_ammo 50
+#
+# The higher the more often the bots will shoot the boss
+sob_bossattackfactor 1.0
+#
+# Health which spies run away after attacking
+sob_spy_runaway_health 70
+#
+# the FOV from the enemy that spies must backstab from
+sob_spyknifefov 80
+#
+# Fraction of how much the heavy aims at a diagonal offset
+sob_heavyaimoffset 0.1
+#
+# Seconds for bots to start thinking about moving sentries
+sob_move_sentry_time 120
+#
+# kpm = kills per minute, if less than this, bots will think about moving the sentry
+sob_move_sentry_kpm 1
+#
+# Seconds for bots to start thinking about moving dispensers
+sob_move_disp_time 120
+#
+# If dispenser heals less than this per minute, bot will move the dispensers
+sob_move_disp_healamount 100
+#
+# Distance that bots will go back to use a dispenser
+sob_disp_dist 800.0
+#
+# Minimum distance to move objects to
+sob_move_dist 800
+#
+# Seconds for bots to start thinking about moving teleporters
+sob_move_tele_time 120
+#
+# If no of players teleported per minute is less than this, bot will move the teleport
+sob_move_tele_tpm 1
+#
+# Time scout uses to double jump
+sob_scoutdj 0.5
+#
+# Time for soldier to fire rocket after jumping
+sob_rj 0.01
+#
+# Distance the demo bot will take to run up for a pipe/sticky bomb jump
+sob_demo_runup 99.0
+#
+# Enable experimental pipe jumping at rocket jump waypoints
+sob_enable_pipejump 1
+#
+# If 1 sob engineers will move objects around
+sob_move_obj 1
+#
+# To enable "Auto Bot Quota" set the interval to a value above 0 (e.g. 5) (unit is seconds)
+# This interval is used to check the human/bot player count
+# For more information see bot_quota.ini
+sob_bot_quota_interval -1
+#
+# If quota is enabled then min and max are treated as a ceiling and floor for bot numbers.
+# If quota is disabled then these become the primary logic for deciding bot numbers.
+sobd config min_bots -1
+sobd config max_bots 10
+#
+# If enabled, only concider humans who are actively playing - ie; are on a team
+# Caution: if max_bots is too high it's possible to have teams full of bots and humans
+# be unable to join since bots will no longer disconnect as soon as players join the server
+#sob_ignore_spectators 0
+#
+# When reducing the number of bots, instead of kicking a randomly chosen bot, kick the most
+# recently added bot.  If teams are unequal, only concider bots from the larger team.
+#sob_nonrandom_kicking 0
+#
+# When adding a bot, instead of using a randomly chosen profile, treat the profiles as
+# an ordered list, loading bot 1 first, bot 2 second and so on.   If teams are unequal,
+# only concider bots who either have no team preference, or who's team profile is for
+# the smaller team.   If no suitable bot can be found, fall back to choosing one randomly.
+#sob_nonrandom_profile 0
+#
+# These plugins conflict and may not work well with SOB. Please inform us for any plugins that
+# conflicts or prevents SOB from working in sob.bots-united.com
+# The plugins that have been commented are considered greylisted as they aren't guaranteed to work						 
+sm plugins unload bot_ai.smx
+sm plugins unload bot_nologic.smx
+sm plugins unload bot_playerdestruction_ai.smx
+sm plugins unload bot_rocketjump.smx
+sm plugins unload bot_rocketjump_alt.smx
+sm plugins unload bot_trucefix.smx
+sm plugins unload botmanager.smx
+#sm plugins unload ClassRestrictionsForBots.smx
+sm plugins unload ClassWarfare.smx
+#sm plugins unload GiveBotsCosmetics.smx
+#sm plugins unload GiveBotsWeapons.smx
+#sm plugins unload gscramble.smx
+sm plugins unload tf2items_manager.smx
+sm plugins unload smac_cvars.smx
+sm plugins unload superlogs-tf2.smx
+#sm plugins unload bossspawner.smx
+sm plugins unload sm_dod_dropweapon.smx
+#sm plugins unload addon_dodtms_classrest.smx
+#
+# This is a TF2 lag bot prevention fix that prevents causing sobs to crash
+sv_quota_stringcmdspersecond 99999
+#
+# Nosoop's new SOB Logging cvar for monitoring warnings and errors
+# Display logging messages with increasing verbosity (higher number = more messages)
+# Loglevel 2 or below is recommended as having it higher can affect the server's performance
+# and can crash when using `sob waypoint save` console command and corrupt the waypoint
+sob_loglevel 2
