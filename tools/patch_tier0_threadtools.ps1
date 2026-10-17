@@ -1,54 +1,69 @@
-# Align CThreadFastMutex with the ABI used by modern Source engine builds.
+# Make CThreadFastMutex::Lock() engine-independent (CS:SO / modern Source builds).
 #
 # Why this exists
 # ---------------
-# The plugin imports a handful of symbols from the engine's tier0.dll.  One of
-# them, CThreadFastMutex::Lock(), is an out-of-line member function whose
-# mangled name depends on the type of its first parameter, and whose class
-# layout depends on the type of its m_ownerID member.
+# KeyValues (and a few other SDK classes) lock a CThreadFastMutex, and in the
+# pinned HL2SDK that lock's slow path is an *imported* member function:
 #
-# In the pinned HL2SDK that type is ThreadId_t, and ThreadId_t is:
+#     PLATFORM_CLASS void Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile;
+#
+# The mangled name of that import depends on ThreadId_t, and ThreadId_t is:
 #
 #     #ifdef PLATFORM_64BITS
-#     typedef uint64 ThreadId_t;
+#     typedef uint64 ThreadId_t;      ->  ?Lock@CThreadFastMutex@@AECAX_KI@Z
 #     #else
-#     typedef uint32 ThreadId_t;
+#     typedef uint32 ThreadId_t;      ->  ?Lock@CThreadFastMutex@@AECAXII@Z
 #     #endif
 #
-# so a 64-bit build asks tier0.dll for
+# The engine that ships with CS:SO is a modern 64-bit Source build and uses
+# 32-bit thread ids - SourceMod's working sourcemod.2.csso.dll imports exactly
+# that uint32 form - so its tier0.dll exports
 #
-#     ?Lock@CThreadFastMutex@@AECAX_KI@Z   (unsigned __int64 threadId, unsigned)
+#     ?Lock@CThreadFastMutex@@AECAXII@Z   (unsigned int, unsigned)
 #
-# The engine that ships with CS:SO (and other modern 64-bit Source builds) uses
-# 32-bit thread ids instead - exactly what SourceMod's sourcemod.2.csso.dll does
-# - so its tier0.dll only exports
+# but not the uint64 form.  A 64-bit build of our plugin therefore gets
 #
-#     ?Lock@CThreadFastMutex@@AECAXII@Z    (unsigned int threadId, unsigned)
+#     [SOB] Loader: FAILED to open: ... (GetLastError() == 127,
+#                                       ERROR_PROC_NOT_FOUND)
 #
-# Result: LoadLibrary() on our plugin fails with GetLastError() == 127
-# (ERROR_PROC_NOT_FOUND, "The specified procedure could not be found") and
-# Metamod lists the plugin as <FAILED>.  Renaming the import alone is not
-# enough: the two class layouts differ (uint64 owner + int depth versus uint32
-# owner + int depth), so the engine's Lock() would read and write the wrong
-# offsets and the mutex would never be released.
+# from LoadLibrary() and Metamod lists the plugin as <FAILED>.
 #
-# Rather than bump the whole SDK (a much bigger ABI jump), this script replaces
-# only the CThreadFastMutex class with the 32-bit form that the engine and
-# SourceMod both use.  The class is self-contained, so nothing else is affected:
+# Why not simply rename the import (or bump the whole SDK)?
+# --------------------------------------------------------
+#   * Renaming it in the binary is unsafe: the two class layouts differ
+#     (uint64 owner + int depth versus uint32 owner + int depth), so the
+#     engine's Lock() would read and write the wrong offsets and the mutex
+#     would never be released.
+#   * Declaring the uint32 form in the header does not link either: the SDK's
+#     prebuilt import library (hl2sdk-css\lib\public\x64\tier0.lib) still only
+#     provides the uint64 symbol, so the link fails with
 #
-#   * 64-bit builds now import ?Lock@CThreadFastMutex@@AECAXII@Z, which exists.
-#   * 32-bit builds are unchanged in behaviour (ThreadId_t is already uint32
-#     there, and ThreadInterlockedAssignIf is already the 32-bit CAS).
-#   * The parameter casts are explicit, so the patched text also builds in the
-#     POSIX/Clang branch of the header, where the helpers take int32.
+#       error LNK2019: unresolved external symbol
+#         __imp_?Lock@CThreadFastMutex@@AECAXII@Z  (KeyValues.obj)
+#
+# Instead, this script defines the slow path *inline* in the class, so the
+# plugin no longer imports the engine's Lock() at all:
+#
+#   * nothing else about the class changes - same layout, same inline fast path
+#     (TryLockInline) and same inline Unlock() that the SDK already had, so the
+#     mutex stays entirely inside our own module and remains self-consistent;
+#   * the import disappears, which is what makes the plugin loadable on CS:SO;
+#   * it works for the 32-bit build too (there the engine's type and ours are
+#     both uint32; we simply stop calling into the engine as well);
+#   * the only extra dependency is ThreadSleep(), which every tier0 has - the
+#     SDK's own prebuilt tier0.lib for css contains it, and so does the
+#     engine's tier0.dll (check it with: pe-check.ps1 -Exports <...>\tier0.dll).
+#
+# Only hl2sdk-css is patched: that is the SDK the CSS/CS:SO module is built and
+# linked against (see the link line for sob.2.css.dll, which references
+# hl2sdk-css\lib/public/x64/tier0.lib).  Other mods keep the stock SDK, whose
+# import name matches their own 32-bit engines.
 #
 # Usage:
 #     powershell -ExecutionPolicy Bypass -File tools\patch_tier0_threadtools.ps1 -Root alliedmodders
 #
-# Every hl2sdk-*\public\tier0\threadtools.h that still contains the old class is
-# patched.  The SDK used for the CSS/CS:SO module (hl2sdk-css) must be present
-# and must end up aligned, otherwise the script exits non-zero so CI fails
-# loudly instead of shipping a plugin that cannot load.
+# The script is idempotent and exits non-zero if the expected class is not
+# found, so CI fails loudly instead of shipping a plugin that cannot load.
 
 param(
     [Parameter(Mandatory = $true)]
@@ -60,113 +75,38 @@ $ErrorActionPreference = 'Stop'
 $relative = 'public\tier0\threadtools.h'
 $requiredSdk = 'hl2sdk-css'
 
-$newClass = @'
-class CThreadFastMutex
-{
-public:
-	CThreadFastMutex()
-	  :	m_ownerID( 0 ),
-	  	m_depth( 0 )
+# The out-of-line declaration we are replacing, exactly as it appears in the
+# pinned HL2SDK (tab-indented, one line).
+$oldDeclaration = "`tPLATFORM_CLASS void Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile;"
+
+# Our replacement: the same signature, defined inline instead of imported.
+$newDefinition = @'
+	// SOB: the engine's tier0.dll is not guaranteed to export this out-of-line
+	// helper. Modern 64-bit Source builds (CS:SO builds; SourceMod's
+	// sourcemod.2.csso.dll imports the same) use 32-bit thread ids, so their
+	// tier0 exports Lock(unsigned int, unsigned) while a 64-bit build of this
+	// SDK asks for Lock(unsigned __int64, unsigned). The import then cannot be
+	// resolved and LoadLibrary() fails with ERROR_PROC_NOT_FOUND (127), which
+	// Metamod reports as <FAILED>. Defining the slow path here keeps the mutex
+	// inside our own module and its layout private to us.
+	void Lock( const ThreadId_t threadId, unsigned nSpinSleepTime ) volatile
 	{
-	}
-
-private:
-	FORCEINLINE bool TryLockInline( const uint32 threadId ) volatile
-	{
-		if ( threadId != m_ownerID && !ThreadInterlockedAssignIf( (int32 volatile *)&m_ownerID, (int32)threadId, 0 ) )
-			return false;
-
-		ThreadMemoryBarrier();
-		++m_depth;
-		return true;
-	}
-
-	bool TryLock( const uint32 threadId ) volatile
-	{
-		return TryLockInline( threadId );
-	}
-
-	PLATFORM_CLASS void Lock( const uint32 threadId, unsigned nSpinSleepTime ) volatile;
-
-public:
-	bool TryLock() volatile
-	{
-#ifdef _DEBUG
-		if ( m_depth == INT_MAX )
-			DebuggerBreak();
-
-		if ( m_depth < 0 )
-			DebuggerBreak();
-#endif
-		return TryLockInline( (uint32)ThreadGetCurrentId() );
-	}
-
-#ifndef _DEBUG
-	FORCEINLINE
-#endif
-	void Lock( unsigned int nSpinSleepTime = 0 ) volatile
-	{
-		const uint32 threadId = (uint32)ThreadGetCurrentId();
-
-		if ( !TryLockInline( threadId ) )
+		for ( unsigned nSpin = 0; !TryLock( threadId ); ++nSpin )
 		{
-			ThreadPause();
-			Lock( threadId, nSpinSleepTime );
-		}
-#ifdef _DEBUG
-		if ( m_ownerID != (uint32)ThreadGetCurrentId() )
-			DebuggerBreak();
-
-		if ( m_depth == INT_MAX )
-			DebuggerBreak();
-
-		if ( m_depth < 0 )
-			DebuggerBreak();
-#endif
-	}
-
-#ifndef _DEBUG
-	FORCEINLINE
-#endif
-	void Unlock() volatile
-	{
-#ifdef _DEBUG
-		if ( m_ownerID != (uint32)ThreadGetCurrentId() )
-			DebuggerBreak();
-
-		if ( m_depth <= 0 )
-			DebuggerBreak();
-#endif
-
-		--m_depth;
-		if ( !m_depth )
-		{
-			ThreadMemoryBarrier();
-			ThreadInterlockedExchange( (int32 volatile *)&m_ownerID, 0 );
+			if ( nSpin < 1000 )
+			{
+				ThreadPause();
+			}
+			else
+			{
+				ThreadSleep( nSpinSleepTime ? nSpinSleepTime : 1 );
+				nSpin = 0;
+			}
 		}
 	}
-
-#ifdef WIN32
-	bool TryLock() const volatile							{ return (const_cast<CThreadFastMutex *>(this))->TryLock(); }
-	void Lock(unsigned nSpinSleepTime = 1 ) const volatile	{ (const_cast<CThreadFastMutex *>(this))->Lock( nSpinSleepTime ); }
-	void Unlock() const	volatile							{ (const_cast<CThreadFastMutex *>(this))->Unlock(); }
-#endif
-	// To match regular CThreadMutex:
-	bool AssertOwnedByCurrentThread()	{ return true; }
-	void SetTrace( bool )				{}
-
-	uint32 GetOwnerId() const			{ return m_ownerID;	}
-	int	GetDepth() const				{ return m_depth; }
-private:
-	volatile uint32 m_ownerID;
-	int				m_depth;
-};
 '@
 
-# The here-string above has a trailing newline; the class is inserted without
-# one because the terminator's newline comes from the surrounding file.
-if ($newClass.EndsWith("`r`n")) { $newClass = $newClass.Substring(0, $newClass.Length - 2) }
-elseif ($newClass.EndsWith("`n")) { $newClass = $newClass.Substring(0, $newClass.Length - 1) }
+$alreadyMarker = 'Defining the slow path here keeps the mutex'
 
 function Find-ClassStart([string]$Text) {
     $marker = 'class CThreadFastMutex'
@@ -180,11 +120,9 @@ function Find-ClassStart([string]$Text) {
     }
 }
 
-# Status messages go to the console (Write-Host), not to the output stream:
-# the caller assigns this function's output to a variable, which would swallow
-# anything written with Write-Output.
 function Patch-File([string]$Path) {
     $text = [IO.File]::ReadAllText($Path)
+
     $start = Find-ClassStart $text
     if ($start -lt 0) {
         Write-Host '    no CThreadFastMutex class found'
@@ -200,49 +138,43 @@ function Patch-File([string]$Path) {
     $stop = $end + 3
     $block = $text.Substring($start, $stop - $start)
 
-    if ($block.Contains('const uint32 threadId')) {
-        Write-Host '    already aligned'
+    if ($block.Contains($alreadyMarker)) {
+        Write-Host '    already patched'
         return 'already'
     }
-    if (-not $block.Contains('const ThreadId_t threadId')) {
-        Write-Host '    unrecognised CThreadFastMutex definition - not touching it'
+    if (-not $block.Contains($oldDeclaration)) {
+        Write-Host '    the expected out-of-line Lock() declaration is not there - not touching this file'
         return 'skipped'
     }
 
-    $replacement = $newClass
-    if ($block.Contains("`r`n")) { $replacement = $newClass.Replace("`n", "`r`n") }
+    $replacement = $newDefinition
+    if ($block.Contains("`r`n")) { $replacement = $newDefinition.Replace("`n", "`r`n") }
 
-    $patched = $text.Substring(0, $start) + $replacement + $text.Substring($stop)
+    # Replace only that one declaration, inside the class.
+    $patched = $text.Substring(0, $start) + $block.Replace($oldDeclaration, $replacement) + $text.Substring($stop)
     [IO.File]::WriteAllText($Path, $patched)
 
-    $oldLines = ($block -split "`n").Count
-    $newLines = ($replacement -split "`n").Count
-    Write-Host ("    patched ({0} lines -> {1} lines)" -f $oldLines, $newLines)
+    Write-Host '    patched: CThreadFastMutex::Lock() is now defined inline, no engine import'
     return 'patched'
 }
 
 if (-not (Test-Path $Root)) {
-    Write-Output "error: $Root is not a directory"
+    Write-Host "error: $Root is not a directory"
     exit 1
 }
 
-$results = @{}
-Get-ChildItem -Path $Root -Directory -Filter 'hl2sdk-*' -ErrorAction SilentlyContinue | Sort-Object Name | ForEach-Object {
-    $sdk = $_.Name
-    $file = Join-Path (Join-Path $_.FullName 'public\tier0') 'threadtools.h'
-    if (-not (Test-Path $file)) { return }
-    Write-Output ("  {0}" -f $sdk)
-    $results[$sdk] = Patch-File $file
-}
-
-if (-not $results.ContainsKey($requiredSdk)) {
-    Write-Output ("error: {0} not found under {1} - the CSS module cannot be built against the right ABI" -f $requiredSdk, $Root)
-    exit 1
-}
-if ($results[$requiredSdk] -eq 'skipped') {
-    Write-Output ("error: {0} was not aligned - refusing to build a plugin that imports CThreadFastMutex::Lock(unsigned __int64)" -f $requiredSdk)
+$file = Join-Path (Join-Path $Root $requiredSdk) $relative
+Write-Host "  $requiredSdk"
+if (-not (Test-Path $file)) {
+    Write-Host "error: $file not found - the CSS/CS:SO module is built against hl2sdk-css"
     exit 1
 }
 
-Write-Output ("OK: {0} is aligned with the engine ABI" -f $requiredSdk)
+$status = Patch-File $file
+if ($status -eq 'skipped') {
+    Write-Host 'error: hl2sdk-css was not patched - refusing to build a plugin that imports CThreadFastMutex::Lock(unsigned __int64)'
+    exit 1
+}
+
+Write-Host 'OK: the CSS/CS:SO module will not import CThreadFastMutex::Lock() from the engine'
 exit 0

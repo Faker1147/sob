@@ -111,12 +111,14 @@ jobs:
           [ -d "alliedmodders/$d" ] || { echo "::error::alliedmodders/$d missing"; exit 1; }
         done
 
-    # The engine that ships with CS:SO uses 32-bit thread ids, so its tier0.dll
-    # exports CThreadFastMutex::Lock(unsigned int, unsigned), while the pinned
-    # HL2SDK asks for Lock(unsigned __int64, unsigned) in 64-bit builds. Without
-    # this the plugin fails to load with ERROR_PROC_NOT_FOUND (127) and Metamod
-    # reports it as <FAILED>. See tools/patch_tier0_threadtools.ps1 for details:
-    # the class layout differs too, so only the import name cannot be fixed.
+    # KeyValues locks a CThreadFastMutex whose slow path is imported from the
+    # engine in the pinned HL2SDK. CS:SO's tier0.dll only exports the
+    # uint32-thread-id form, a 64-bit build of the SDK asks for the uint64 one,
+    # and LoadLibrary then fails with ERROR_PROC_NOT_FOUND (127) - Metamod
+    # reports the plugin as <FAILED>. Renaming the import is unsafe (the class
+    # layouts differ) and re-declaring it does not link (the SDK's prebuilt
+    # tier0.lib only provides the old symbol), so the script defines that slow
+    # path inline instead, which removes the engine import altogether.
     - name: Align tier0 thread ABI (CS:SO)
       if: runner.os == 'Windows'
       shell: bash

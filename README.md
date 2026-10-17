@@ -121,7 +121,9 @@ MSVC + Python 3 + AMBuild，详见上游 [Building SourceMod]。
 >
 > 原因见脚本开头的注释：CS:SO 引擎的 `tier0.dll` 用的是 32 位线程 ID
 > （`CThreadFastMutex::Lock(unsigned int, unsigned)`），而旧版 HL2SDK 在 64 位
-> 下会去要 `Lock(unsigned __int64, unsigned)`，同时类布局也不同。
+> 下会去要 `Lock(unsigned __int64, unsigned)`；两个类的内存布局也不同，所以不能
+> 只改名字（直接改名无法链接、运行时也会操作错偏移）。补丁的做法是把这段慢路径
+> 实现**内联**到自己模块里，彻底不再从引擎导入该函数。
 
 ## 常见问题
 
