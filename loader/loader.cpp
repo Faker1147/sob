@@ -68,6 +68,14 @@ typedef void* HINSTANCE;
 #define PLATFORM_ARCH_FOLDER ""
 #endif
 
+// CS:SO ("Counter-Strike: Source Offensive" 2.0) runs a 64-bit CSS-derived
+// engine which reports its own engine id (28) to Metamod.  Metamod 2.0 itself
+// ships no csso-specific core and falls back to the CSS one, so do the same
+// here.  Without this the loader aborts with "Unknown source engine id".
+// The value is not part of the Metamod headers this is built against, hence
+// our own name instead of SOURCE_ENGINE_*.
+#define SOB_ENGINE_CSSO 28
+
 constexpr int METAMOD_API_MAJOR = 2;
 
 #define FILENAME_1_6_EP2 PLATFORM_ARCH_FOLDER "sob.2.ep2" PLATFORM_EXT
@@ -435,6 +443,13 @@ DLL_EXPORT METAMOD_PLUGIN* CreateInterface_MMS(const MetamodVersionInfo* mvi, co
 		case SOURCE_ENGINE_DOI:
 		{
 			filename = FILENAME_1_6_DOI;
+			break;
+		}
+		case SOB_ENGINE_CSSO:
+		{
+			// CS:SO uses a CSS-derived engine, so use the CSS bot module.
+			LogToFile( "[SOB] Loader: CS:SO (csso) engine detected (id %d), using CSS module\n", mvi->source_engine);
+			filename = FILENAME_1_6_CSS;
 			break;
 		}
 		default:
