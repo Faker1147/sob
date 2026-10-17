@@ -111,12 +111,25 @@ sm_addsob TestBot   // 用 SourceMod 命令加 bot（需要 root admin）
 在 Windows 上编译 x86 + x64 两个版本并打包成 artifact。本地要编译的话需要
 MSVC + Python 3 + AMBuild，详见上游 [Building SourceMod]。
 
+> **注意**：编译前必须对 HL2SDK 打一次兼容补丁，否则 64 位插件在 CS:SO 里会
+> 加载失败（`ERROR_PROC_NOT_FOUND` / 127）。CI 会自动执行这一步，本地编译请先
+> 手动运行：
+>
+> ```
+> powershell -ExecutionPolicy Bypass -File tools\patch_tier0_threadtools.ps1 -Root alliedmodders
+> ```
+>
+> 原因见脚本开头的注释：CS:SO 引擎的 `tier0.dll` 用的是 32 位线程 ID
+> （`CThreadFastMutex::Lock(unsigned int, unsigned)`），而旧版 HL2SDK 在 64 位
+> 下会去要 `Lock(unsigned __int64, unsigned)`，同时类布局也不同。
+
 ## 常见问题
 
 | 现象 | 原因 / 解决 |
 |---|---|
 | `meta list` 里 SOB 显示失败 | 看 `addons/sob/sob_loader.log`，里面会写明原因 |
 | 日志停在 `Unknown source engine id: N` | 新引擎 ID 未适配，需要在 `loader/loader.cpp` 里加分支 |
+| 日志写着 `FAILED to open: 找不到指定的程序` | 就是上面那个 tier0 兼容补丁没打（错误码 127） |
 | bot 加了但不动 | 没录航点，见上面「航点」一节 |
 | 命令没反应 | 监听服务器里第一个进入的客户端自动获得全部权限；专用服务器请从服务端控制台输入 |
 
@@ -129,6 +142,7 @@ sob_subcmds/   命令子模块（waypoint / path 等）
 sm_ext/        SourceMod 扩展接口（编译进插件本身）
 scripting/     SourcePawn native 声明与示例插件
 package/       打包配置（metamod vdf、config ini）
+tools/         构建期兼容补丁（patch_tier0_threadtools.ps1）
 ```
 
 ## License

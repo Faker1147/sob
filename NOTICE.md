@@ -23,6 +23,15 @@ nosoop and contributors). This repository only renames the plugin identity
    picks up the right mod configuration when `gamedir` is `csso`.
 4. **Fixed upstream build breakage** (missing `CBotFortress::chooseClass`
    declaration, missing FF_HudLua plugin members) and restricted CI to Windows.
+5. **Patched the pinned HL2SDK** at build time
+   (`tools/patch_tier0_threadtools.ps1`): the CS:SO engine's `tier0.dll` exports
+   `CThreadFastMutex::Lock(unsigned int, unsigned)`, because modern Source
+   builds use 32-bit thread ids (SourceMod's `sourcemod.2.csso.dll` imports the
+   same symbol), while a 64-bit build of the pinned HL2SDK asks for
+   `Lock(unsigned __int64, unsigned)`. `LoadLibrary()` therefore failed with
+   `ERROR_PROC_NOT_FOUND` (127) and Metamod listed the plugin as `<FAILED>`.
+   The script replaces that single class with the 32-bit definition before the
+   build. See the script's header comment for the full explanation.
 
 ## Licensing of individual parts
 
