@@ -1,170 +1,150 @@
-# SOB for Windows and Linux (TF2, HL2:DM, DOD:S)
+# SOB — Counter-Strike: Source Offensive 第三方 Bot
 
-## Information:-
+> **English:** SOB is a rebranded, custom build of the open-source
+> [RCBot2](https://github.com/APGRoboCop/rcbot2) bot plugin, packaged for
+> **Counter-Strike: Source Offensive (CS:SO) 2.0** (64-bit engine).
+> Prebuilt Windows packages are attached to [Releases](../../releases).
+> Licensed under AGPLv3 — see [License](#license).
 
-This is a fork of [the official SOB plugin][sob] written by Cheeseh.
-Special thanks to pongo1231 for adding more TF2 support and NoSoop for adding AMBuild support and many more!
+SOB (Source Offensive Bot) 是一个**独立的第三方 bot**，不依赖游戏内置的 ZBot，
+也不需要改 `botprofile.db`。它是 RCBot2 的再命名 + 适配衍生版，安装目录
+`addons/sob`、命令前缀 `sob`、cvar 前缀 `sob_`。
 
-The [bots-united.com discord][] and [forums][bots-united forums] are the places to ask for
-general SOB support. I'm not present in either of those; file an issue on this repository if
-you need support for this particular project. 
+## 特性
 
-[sob]: http://sob.bots-united.com/
-[bots-united.com discord]: https://discord.gg/5v5YvKG4Hr
-[bots-united forums]: http://sob.bots-united.com/forums/index.php?showforum=18
+- **独立的第三方 Bot**：自带 AI、导航、航点系统，与内置 ZBot 无关
+- **支持 64 位 CS:SO 2.0**：CS:SO 上报的引擎 ID 是 `28`（独立引擎），本仓库的
+  loader 已适配，映射到 CSS 模块（Metamod 自身也是这么回退的）
+- **航点导航**：自动寻路、可手动录制航点
+- **武器 / 技能 / 难度配置**：`sob/config/*.ini`
+- **可选 SourceMod 集成**：向 SourcePawn 暴露 `SOB_CreateBot` 等 native
 
-## Changes from upstream:-
+## 下载
 
-- Build process uses [AMBuild][] instead of `make` or Visual Studio.  This removes the need for
-Valve's cross platform make conversion tool and keeping copies of modified Source SDK files.
-- The plugin has been split into SDK-specific builds to ensure proper compatibility, using the
-same loader shim SourceMod uses to load mod-specific builds.
-	- The shim is named `SOBMeta` to maintain compatibility with existing files; mod-specific
-	plugins are named `sob.2.${MOD}`.
-	- The `sdk-split` branch only contains modifications to get the project running on the
-	new build tooling and SDK support without issues.  It should be fairly painless to merge
-	(though it does remove `using namespace std;` for sanity).
-- The usage of the install directory has been dropped.  In particular, waypoints must be located
-under `sob/waypoints/${MOD}` instead of nested under a folder matching the name of the
-steamdir.
-- Removed custom loadout and attribute support from the TF2 portion of the plugin. Other server
-plugins (namely [tf2attributes][] and [TF2Items][], where the implementation was ported from)
-are better-suited and maintained to handle that stuff; this plugin should only deal with bots
-themselves.
-- The Metamod:Source plugin can now optionally expose natives to SourceMod, adding some
-functionality to control the SOB plugin from SourcePawn.
+- **[Releases](../../releases)** —— 编译好的 Windows 包（推荐）
+- 或者到 [Actions](../../actions) 里下载最新一次构建的 artifact
 
-[AMBuild]: https://wiki.alliedmods.net/AMBuild
-[tf2attributes]: https://github.com/FlaminSarge/tf2attributes
-[TF2Items]: https://github.com/asherkin/TF2Items
+包内结构（同时含 32 位与 64 位）：
 
-## Installation:-
+```
+addons/metamod/sob.vdf          Metamod 自动加载配置
+addons/sob/bin/SOBMeta.dll      loader（32 位）
+addons/sob/bin/SOBMeta.x64.dll  loader（64 位）
+addons/sob/bin/x64/sob.2.css.dll  64 位 Bot 本体
+addons/sob/bin/sob.2.*.dll        32 位 Bot 本体（各 mod）
+addons/sob/config/*.ini           配置文件
+```
 
-1. [Install MetaMod:Source].
-2. Download or build the SOB package.
-3. Extract the package into your game directory, similar to the process of installing MM:S.
-4. Start the server.
-5. To verify that the installation was successful, type `sobd` in your server console or RCON.
-You should see multiple lines starting with "[SOB]".
+## 安装
 
-Things like the waypointing guide, hookinfo updater, and waypoints themselves are currently not
-available here.  You can download those from the [official release thread][].  Waypoints are
-also available at [this page][waypoints].
+**前置条件：[Metamod:Source](https://www.metamodsource.net/) 2.0**（CS:SO 必须装 64 位版本）
 
-[Install MetaMod:Source]: https://wiki.alliedmods.net/Installing_Metamod:Source
-[official release thread]: http://sob.bots-united.com/forums/index.php?showtopic=1994
-[waypoints]: http://sob.bots-united.com/waypoints.php
+1. 解压下载到的包
+2. 把 `addons` 文件夹覆盖进游戏根目录，例如
+   `D:\Counter-Strike Source\csso\addons\`
+3. 重启服务端 / 游戏
+4. 控制台输入 `meta list` 验证，应当看到：
 
-## Building:-
+   ```
+   [01] SOB    RUNNING
+   ```
 
-### Cloning from source
+> 64 位下 Metamod 会把插件路径解析为 `SOBMeta.x64.dll`，所以两个 DLL 都要保留。
+> 加载失败时请看 `addons/sob/sob_loader.log`，里面有明确的失败原因。
 
-SOB's repo history had all sorts of build artifacts / binaries at various points in time, so
-pulling the repository down normally takes an unusually long while.  I'd highly recommend
-passing in `--depth 1` or a few to avoid retrieving the files that were removed since then.
+## 使用
 
-### Compiling on Windows / Linux
+```
+bot_quota 0       // 关掉游戏内置的 ZBot（可选，避免混淆）
+sob addbot        // 加一个 SOB
+sob kickbot       // 踢掉一个 SOB
+sob               // 显示完整命令帮助
+```
 
-1. [Install the prerequisites for building SourceMod for your OS.][Building SourceMod]
-2. Create a `build/` subdirectory, then run `configure.py`.
-	- Use the following options (where `${MOD}` is only TF2):
-	`python ../configure.py -s ${MOD} --mms_path ${MMS_PATH} --hl2sdk-root ${HL2SDK_ROOT}`
-	- Specifying an `--sm-path` argument enables linking to SourceMod.
-	- Note that the automatic versioning system requires an installation of `git` and a
-	relatively modern version of Python 3. Python version 2 is now depreciated.
-3. Run `ambuild`.  MetaMod:Source plugin is built and the base install files will be available
-in `build/package`.
+其他命令：`sob config` / `sob debug` / `sob user` / `sob util` / `sob waypoint` /
+`sob pathwaypoint` / `sob control` / `sob print`
+
+### 航点（重要！）
+
+SOB **不附带 CS:SO 的航点文件**，所以刚装好时 bot 会站着不动 —— 必须自己录：
+
+```
+sob waypoint on       // 打开航点编辑模式
+sob waypoint add      // 添加航点（走到目标位置再执行）
+sob waypoint save     // 保存到 addons/sob/waypoints/<地图名>.rcw
+sob waypoint off      // 退出编辑模式
+```
+
+其他子命令：`sob waypoint delete|info|load|clear`
+
+> 一个地图至少要有一条连通的航点路线，bot 才会寻路移动。
+> 录之前的 `bot_quota 0` 可以避免 ZBot 干扰。
+
+### SourceMod 集成（可选）
+
+`scripting/` 里提供了 native 接口，让你能从 SourcePawn 里控制 SOB：
+
+| 文件 | 放置位置 |
+|---|---|
+| `scripting/include/sob.inc` | `addons/sourcemod/scripting/include/` |
+| `scripting/sob_sample.sp` | `addons/sourcemod/scripting/` |
+| 编译产物 `sob_sample.smx` | `addons/sourcemod/plugins/` |
+
+编译（用游戏自带的编译器即可）：
+
+```bat
+cd "D:\Counter-Strike Source\csso\addons\sourcemod\scripting"
+spcomp64.exe sob_sample.sp
+```
+
+然后在游戏里：
+
+```
+sm exts list        // 应当能看到 SOB 扩展
+sm plugins list     // 应当能看到 sob_sample.smx
+sm_addsob TestBot   // 用 SourceMod 命令加 bot（需要 root admin）
+```
+
+## 构建
+
+仓库自带 GitHub Actions（`.github/workflows/build.yml`），push 到 `main` 就会
+在 Windows 上编译 x86 + x64 两个版本并打包成 artifact。本地要编译的话需要
+MSVC + Python 3 + AMBuild，详见上游 [Building SourceMod]。
+
+## 常见问题
+
+| 现象 | 原因 / 解决 |
+|---|---|
+| `meta list` 里 SOB 显示失败 | 看 `addons/sob/sob_loader.log`，里面会写明原因 |
+| 日志停在 `Unknown source engine id: N` | 新引擎 ID 未适配，需要在 `loader/loader.cpp` 里加分支 |
+| bot 加了但不动 | 没录航点，见上面「航点」一节 |
+| 命令没反应 | 监听服务器里第一个进入的客户端自动获得全部权限；专用服务器请从服务端控制台输入 |
+
+## 目录结构
+
+```
+loader/        Metamod loader shim（决定加载哪个 sob.2.<mod>.dll）
+utils/SOB_meta/  Bot 主体（AI、导航、命令）
+sob_subcmds/   命令子模块（waypoint / path 等）
+sm_ext/        SourceMod 扩展接口（编译进插件本身）
+scripting/     SourcePawn native 声明与示例插件
+package/       打包配置（metamod vdf、config ini）
+```
+
+## License
+
+SOB 是 [RCBot2](https://github.com/APGRoboCop/rcbot2) 的衍生版，遵循上游的
+**GNU Affero General Public License v3**（见 [LICENSE](LICENSE)）。
+其中 `loader/` 与 `sm_ext/` 来自 SourceMod，为 GPLv3。
+详见 [NOTICE.md](NOTICE.md)。修改后的源码必须同样公开。
+
+## Credits
+
+- 原始项目 **RCBot2** 与 bot AI / 导航 / 航点逻辑：Paul Murphy ("Botman")、
+  [APG]RoboCop[CL]、nosoop 及各位贡献者
+- Bot 基础代码：Botman's HPB Template
+- SourceMod / AMBuild 构建支持：nosoop
+- TF2 / MvM / CSS 等支持：Anonymous Player (caxanga334)、Ducky1231/Pongo 等
+- 完整名单见上游仓库
 
 [Building SourceMod]: https://wiki.alliedmods.net/Building_SourceMod
-
-## License:-
-
-SOB is released under the [GNU Affero General Public License][].  Among other things, this
-means that any modifications you make to SOB must have the sources available under the same
-license to players on your server.
-
-Additionally, `sob/logging.{h,cpp}` is released separately under the
-[BSD Zero Clause License][].
-
-[GNU Affero General Public License]: https://spdx.org/licenses/AGPL-3.0-only.html
-[BSD Zero Clause License]: https://spdx.org/licenses/0BSD.html
-
-### To-do:-
-
-- To figure out why HL2DM flying props pass through bots
-- To allow bots to menuselect to buy upgrades for MVM
-- To prevent the MVM red bots from being kicked for Blu Machine bots
-- To improve game detection for non-listed Source gamemods
-- To add proper support for the new Zombie Infection TF2 maps since Scream Fortress XV update - Testing in progress! (zombie/Hale hunt-target logic added; class tactics below still pending)
-- To add proper support for Robot Destruction gameplay by destroying bots when not ubered
-- To prevent EngiBots from facing their SG Turrets the wrong way - Testing in progress!
-- To improve on how Medic and Spy bots behave smarter and adequately when interacting with SG Turrets and Healing/Ubering
-- Bots need to understand how to play Kart games from sd_doomsday_event as they only wonder around those minigames
-- CBotTF2::changeClass needs to be implemented to avoid bots punting when using ClassRestrictionsForBots.smx and `sob_change_classes 1` - Testing in progress!
-- To add TF2C support along with Black Mesa Source, Counter-Strike: Source, Fortress Forever, Pre-Fortress 2, Synergy and Dystopia
-
-## Credits:-
-
-- Founder - Cheeseh
-- Bot base code - Botman's HPB Template
-- Linux Conversion and Waypointing - [APG]RoboCop[CL]
-- TF2 support and enhancements - Ducky1231/Pongo
-- SourceMod and AMBuild support - nosoop
-- Synergy, TF2, MvM, CSS and AMBuild support - Anonymous Player/caxanga334
-- TF2 Classified support - Technochips
-- TF2 additional gamemodes support - RussiaTails
-- Linux Black Mesa and SDK2013 mathlib fix - Sappho
-- Dystopia support - Soft As Hell
-- DoDS and main config support fixes - DNA.styx
-- Major waypointer for TF2 - LK777, RussiaTails, Witch, Francis, RevilleAJ, Waffle033
-- Major waypointer for DoDS - INsane, Gamelarg05, genmac
-- Miniz compression - Rich Geldreich and Tenacious Software LLC
-
-## Waypointers:-
-
-- NightC0re
-- wakaflaka
-- dgesd
-- naMelesS
-- ati251
-- Sandman[SA]
-- Speed12	
-- MarioGuy3
-- Sjru	
-- Fillmore
-- htt123
-- swede
-- YouLoseAndIWin
-- ChiefEnragedDemo
-- madmax2
-- Pyri
-- Softny		
-- Wolf
-- TesterYYY		
-- darkranger		
-- Emotional
-- J@ck@l		
-- YuriFR
-- Otakumanu		
-- 芝士人
-- Eye of Justice
-- TheSpyhasaGun (ScoutDogger)		
-- NifesNforks
-- parkourtrane
-- assface
-- Doc Lithius
-- Kamaji
-- Geralt
-- Smoker		
-- dzoo11
-- Combine Soldier		
-- cyglade
-- TFBot_Maverick
-- apdonato
-- Sntr
-- mehdichallenger
-- Mikou
-
-## SAST Tools
-
-[PVS-Studio](https://pvs-studio.com/en/pvs-studio/?utm_source=website&utm_medium=github&utm_campaign=open_source) - static analyzer for C, C++, C#, and Java code.
