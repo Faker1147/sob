@@ -261,6 +261,12 @@ bool CBotGlobals::dirExists(const char *path)
 
 void CBotGlobals::readSOBFolder()
 {
+	// The mod folder is required by the game-dir relative fallback below, but it
+	// is normally only assigned later on in gameStart().  Without it the fallback
+	// built "(null)/addons/sob/..." which broke every following SOB file lookup.
+	if (m_szModFolder == nullptr)
+		initModFolder();
+
 	const std::unique_ptr<KeyValues, void(*)(KeyValues*)> mainkv(new KeyValues("Metamod Plugin"), [](KeyValues* kv) { kv->deleteThis(); });
 
 	if (mainkv->LoadFromFile(filesystem, "addons/metamod/sob.vdf", "MOD")) {
@@ -270,20 +276,50 @@ void CBotGlobals::readSOBFolder()
 		if (szSOBFolder && *szSOBFolder) {
 			logger->Log(LogLevel::INFO, "SOB Folder -> trying %s", szSOBFolder);
 
-			if (!dirExists(szSOBFolder)) {
+			if (dirExists(szSOBFolder)) {
+				m_szSOBFolder = CStrings::getString(szSOBFolder);
+			}
+			else if (modFolder() != nullptr && modFolder()[0] != '\0') {
 				snprintf(folder, sizeof folder, "%s/%s", CBotGlobals::modFolder(), szSOBFolder);
 
-				szSOBFolder = CStrings::getString(folder);
-				logger->Log(LogLevel::INFO, "SOB Folder -> trying %s", szSOBFolder);
+				logger->Log(LogLevel::INFO, "SOB Folder -> trying %s", folder);
 
-				if (!dirExists(szSOBFolder)) {
-					logger->Log(LogLevel::ERROR, "SOB Folder -> not found ...");
+				if (dirExists(folder)) {
+					m_szSOBFolder = CStrings::getString(folder);
 				}
 			}
-
-			m_szSOBFolder = CStrings::getString(szSOBFolder);
 		}
 	}
+	else {
+		logger->Log(LogLevel::ERROR, "SOB Folder -> could not read 'addons/metamod/sob.vdf'");
+	}
+
+	if (m_szSOBFolder == nullptr) {
+		// Fall back to the SOB folder derived from our own module path, which is
+		// independent of the working directory and of the VDF file.
+		const char* szAddonFolder = SOB_GetAddonFolder();
+
+		if (szAddonFolder != nullptr && dirExists(szAddonFolder)) {
+			m_szSOBFolder = CStrings::getString(szAddonFolder);
+			logger->Log(LogLevel::WARN, "SOB Folder -> falling back to %s", m_szSOBFolder);
+		}
+	}
+
+	if (m_szSOBFolder == nullptr) {
+		char szDefault[256];
+
+		snprintf(szDefault, sizeof szDefault, "addons/%s", BOT_FOLDER);
+
+		if (dirExists(szDefault)) {
+			m_szSOBFolder = CStrings::getString(szDefault);
+			logger->Log(LogLevel::WARN, "SOB Folder -> falling back to %s", m_szSOBFolder);
+		}
+	}
+
+	if (m_szSOBFolder == nullptr)
+		logger->Log(LogLevel::FATAL, "SOB Folder -> NOT FOUND, bot files will not load");
+	else
+		logger->Log(LogLevel::INFO, "SOB Folder -> using %s", m_szSOBFolder);
 }
 
 float CBotGlobals::grenadeWillLand(const Vector& vOrigin, const Vector& vEnemy, const float fProjSpeed, const float fGrenadePrimeTime, const float* fAngle)
@@ -553,8 +589,16 @@ bool CBotGlobals::initModFolder() {
 	char szGameFolder[512];
 	engine->GetGameDir(szGameFolder, 512);
 
-	const std::size_t iLength = std::strlen(CStrings::getString(szGameFolder));
-	std::size_t pos = iLength - 1;
+	std::size_t iLength = std::strlen(CStrings::getString(szGameFolder));
+
+	// SOB: trim trailing path separators first - some engines (CS:SO included)
+	// return the game dir with a trailing separator, which used to make the
+	// "last component" walk below produce an empty mod folder name.
+	while (iLength > 0 && (szGameFolder[iLength - 1] == '\\' || szGameFolder[iLength - 1] == '/')) {
+		szGameFolder[--iLength] = '\0';
+	}
+
+	std::size_t pos = iLength > 0 ? iLength - 1 : 0;
 
 	while (pos > 0 && szGameFolder[pos] != '\\' && szGameFolder[pos] != '/') {
 		pos--;
@@ -562,6 +606,8 @@ bool CBotGlobals::initModFolder() {
 	pos++;
 
 	m_szModFolder = CStrings::getString(&szGameFolder[pos]);
+
+	logger->Log(LogLevel::INFO, "Game directory detected as: \"%s\" (GetGameDir: \"%s\")", m_szModFolder, szGameFolder);
 	return true;
 }
 
@@ -576,9 +622,17 @@ bool CBotGlobals :: gameStart ()
 */
 	//filesystem->GetCurrentDirectory(szSteamFolder,512);
 
-	const std::size_t iLength = std::strlen(CStrings::getString(szGameFolder));
+	std::size_t iLength = std::strlen(CStrings::getString(szGameFolder));
 
-	std::size_t pos = iLength - 1;
+	// SOB: trim trailing path separators (see initModFolder above) - with
+	// "D:\...\csso\" the walk below would return an empty mod folder, which
+	// made mod detection fail and the plugin unload itself.
+	while (iLength > 0 && (szGameFolder[iLength - 1] == '\\' || szGameFolder[iLength - 1] == '/'))
+	{
+		szGameFolder[--iLength] = '\0';
+	}
+
+	std::size_t pos = iLength > 0 ? iLength - 1 : 0;
 
 	while ( pos > 0 && szGameFolder[pos] != '\\' && szGameFolder[pos] != '/' )
 	{
@@ -588,7 +642,7 @@ bool CBotGlobals :: gameStart ()
 	
 	m_szModFolder = CStrings::getString(&szGameFolder[pos]);
 
-	logger->Log(LogLevel::INFO, "Game directory detected as: \"%s\"", m_szModFolder);
+	logger->Log(LogLevel::INFO, "Game directory detected as: \"%s\" (GetGameDir: \"%s\")", m_szModFolder, szGameFolder);
 
 	CBotMods::readMods();
 

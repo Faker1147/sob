@@ -72,6 +72,8 @@ void CBotMods::parseFile()
 
 	CBotGlobals::buildFileName(buffer, BOT_MOD_FILE, BOT_CONFIG_FOLDER, BOT_CONFIG_EXTENSION);
 
+	logger->Log(LogLevel::INFO, "Reading mod list from: '%s'", buffer);
+
 	std::fstream fp = CBotGlobals::openFile(buffer, std::fstream::in);
 
 	CBotMod* curmod = nullptr;
@@ -250,6 +252,8 @@ void CBotMods::readMods()
 	// SOB: also parse bot_mods.ini, so an alternate game folder (e.g. CS:SO's
 	// "csso") can be mapped onto the CSS bot implementation without a rebuild.
 	parseFile();
+
+	logger->Log(LogLevel::INFO, "readMods: %d mod folder(s) registered", static_cast<int>(m_Mods.size()));
 #elif SOURCE_ENGINE == SE_HL2DM
 	m_Mods.emplace_back(new CHalfLifeDeathmatchMod());
 #elif SOURCE_ENGINE == SE_SDK2013

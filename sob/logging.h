@@ -59,4 +59,11 @@ class CBotLogger
 
 extern CBotLogger *logger;
 
+/**
+ * Absolute path of the SOB addon folder ("<gamedir>/addons/sob"), derived from
+ * the location of this module.  Independent of the working directory and of the
+ * metamod VDF file.  Returns nullptr when it cannot be determined.
+ */
+const char *SOB_GetAddonFolder();
+
 #endif

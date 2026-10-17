@@ -27,6 +27,8 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdint>
+#include <cstring>
+#include <ctime>
 
 #include "convar.h"
 #include "icvar.h"
@@ -104,19 +106,115 @@ MessageColorizationMode GetMessageColorizationMode()
 	return Colorize_None;
 }
 
-void CBotLogger::Log(const LogLevel level, const char *fmt, ...)
+#if defined(_WIN64) || defined(_WIN32)
+// SOB: derive "<gamedir>\addons\sob" from this module's own path, e.g.
+//   D:\Counter-Strike Source\csso\addons\sob\bin\x64\sob.2.css.dll
+// so that paths never depend on the working directory or on the VDF file.
+static bool SOB_BuildAddonFolder(char *szOut, const std::size_t iOutSize)
 {
-	if (level > static_cast<LogLevel>(sob_loglevel.GetInt()))
+	HMODULE hSelf = nullptr;
+
+	if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		reinterpret_cast<LPCSTR>(&SOB_BuildAddonFolder), &hSelf))
 	{
-		return;
+		return false;
 	}
 
+	char szModule[512];
+
+	if (GetModuleFileNameA(hSelf, szModule, sizeof(szModule)) == 0)
+		return false;
+
+	for (char *p = szModule; *p; p++)
+	{
+		if ((*p == '\\' || *p == '/') && _strnicmp(p, "\\addons\\", 8) == 0)
+		{
+			snprintf(szOut, iOutSize, "%.*s\\addons\\sob", static_cast<int>(p - szModule), szModule);
+			return szOut[0] != '\0';
+		}
+	}
+
+	return false;
+}
+
+const char *SOB_GetAddonFolder()
+{
+	static char s_szFolder[512];
+	static bool s_bTried = false;
+	static bool s_bFound = false;
+
+	if (!s_bTried)
+	{
+		s_bTried = true;
+		s_bFound = SOB_BuildAddonFolder(s_szFolder, sizeof(s_szFolder));
+	}
+
+	return s_bFound ? s_szFolder : nullptr;
+}
+
+// Also write messages to "<addons/sob>/logs/sob.log" so that load failures can
+// be diagnosed without access to the game console.
+static void SOB_WriteLogFile(const LogLevel level, const char *szMessage)
+{
+	static char s_szLog[512];
+	static bool s_bTried = false;
+	static bool s_bReady = false;
+
+	if (level > LogLevel::DEBUG)
+		return;
+
+	if (!s_bTried)
+	{
+		s_bTried = true;
+
+		if (const char *szFolder = SOB_GetAddonFolder())
+		{
+			char szDir[512];
+
+			snprintf(szDir, sizeof(szDir), "%s\\logs", szFolder);
+			CreateDirectoryA(szDir, nullptr);
+			snprintf(s_szLog, sizeof(s_szLog), "%s\\sob.log", szDir);
+			s_bReady = true;
+		}
+	}
+
+	if (!s_bReady)
+		return;
+
+	if (FILE *fp = fopen(s_szLog, "a"))
+	{
+		char szTime[32] = "";
+
+		const std::time_t now = std::time(nullptr);
+
+		if (const std::tm *pNow = std::localtime(&now))
+			std::strftime(szTime, sizeof(szTime), "%Y-%m-%d %H:%M:%S", pNow);
+
+		fprintf(fp, "%s\t[%s] %s\n", szTime, LOGLEVEL_STRINGS[level], szMessage);
+		fclose(fp);
+	}
+}
+#endif
+
+void CBotLogger::Log(const LogLevel level, const char *fmt, ...)
+{
 	char buf[1024];
 
 	va_list argptr;
 	va_start(argptr, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, argptr);
 	va_end(argptr);
+
+#if defined(_WIN64) || defined(_WIN32)
+	// Written to the log file before the console verbosity check below, because
+	// the sob_loglevel cvar does not exist yet while the plugin is loading.
+	SOB_WriteLogFile(level, buf);
+#endif
+
+	if (level > static_cast<LogLevel>(sob_loglevel.GetInt()))
+	{
+		return;
+	}
 
 	switch (GetMessageColorizationMode())
 	{
