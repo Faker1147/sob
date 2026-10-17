@@ -245,6 +245,11 @@ void CBotMods::readMods()
 	m_Mods.emplace_back(new CDODMod());
 #elif SOURCE_ENGINE == SE_CSS
 	m_Mods.emplace_back(new CCounterStrikeSourceMod());
+
+	// Look for extra MODs
+	// SOB: also parse bot_mods.ini, so an alternate game folder (e.g. CS:SO's
+	// "csso") can be mapped onto the CSS bot implementation without a rebuild.
+	parseFile();
 #elif SOURCE_ENGINE == SE_HL2DM
 	m_Mods.emplace_back(new CHalfLifeDeathmatchMod());
 #elif SOURCE_ENGINE == SE_SDK2013
