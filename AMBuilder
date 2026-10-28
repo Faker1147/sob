@@ -54,6 +54,8 @@ sourceFiles = [
   "utils/SOB_meta/bot_sigscan.cpp",
   "utils/SOB_meta/bot_cvars.cpp",
   "utils/SOB_meta/bot_plugin_meta.cpp",
+  # Temporary CS:SO ConVar ABI probe - remove once the layout is confirmed.
+  "utils/SOB_meta/cvar_probe.cpp",
 
   "sob/logging.cpp",
   "sob/helper.cpp",
