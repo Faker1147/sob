@@ -72,6 +72,7 @@ public:
 	bool Unload(char *error, std::size_t maxlen) override;
 	bool Pause(char *error, std::size_t maxlen) override;
 	bool Unpause(char *error, std::size_t maxlen) override;
+	int GetApiVersion() override;
 	void AllPluginsLoaded() override;
 //public: //IMetamodListener stuff
 	void OnVSPListening(IServerPluginCallbacks *iface) override;

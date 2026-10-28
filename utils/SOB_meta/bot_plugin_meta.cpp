@@ -1123,6 +1123,32 @@ bool SOBPluginMeta::Unpause(char *error, std::size_t maxlen)
 	return true;
 }
 
+/*
+ * CS:SO ships a custom Metamod:Source build that identifies itself as
+ * "1.12.0-dev+1226" and only accepts plugins declaring plugin API 16 or lower.
+ * The headers this project builds against are newer and report 17, so Metamod
+ * rejected the plugin before Load() was ever called:
+ *
+ *   [META] Failed to load plugin addons/sob/bin/SOBMeta:
+ *          Plugin requires newer Metamod version (17 > 16)
+ *
+ * Which is why nothing at all showed up in the SOB logs.  Between API 16 and 17
+ * Metamod only *appended* methods to ISmmPlugin and ISmmAPI (verified by
+ * diffing the two headers), so everything this plugin actually calls still sits
+ * at the same vtable slots.  Declaring 16 therefore keeps the binary working on
+ * the 1.12 build shipped with CS:SO and on newer Metamods alike.
+ */
+int SOBPluginMeta::GetApiVersion()
+{
+#ifdef METAMOD_PLAPI_VERSION
+	constexpr int kMaxSupportedVersion = METAMOD_PLAPI_VERSION < 16 ? METAMOD_PLAPI_VERSION : 16;
+#else
+	constexpr int kMaxSupportedVersion = 16;
+#endif
+
+	return kMaxSupportedVersion;
+}
+
 const char *SOBPluginMeta::GetLicense()
 {
 	return "GPL General Public License";
