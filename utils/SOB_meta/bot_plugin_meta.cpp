@@ -406,35 +406,146 @@ public:
 	}
 } s_BaseAccessor;
 
+/*
+ * CS:SO 2.0 renames a number of engine interfaces. Vanilla Source 2013 asks for
+ * "GAMEEVENTSMANAGER002" / "VEngineCvar004" / "VFileSystem022" / "VSERVERTOOLS003",
+ * while CS:SO answers "GameEventManager003" / "Cvar005" / "FileSystem023" /
+ * "ServerTools004" - different base names, so Metamod's version probing cannot
+ * bridge the gap on its own.
+ *
+ * Looking up with min = 0 makes Metamod search "<base>001", "<base>002", ...
+ * and return the first hit, which also absorbs plain version bumps (asking for
+ * VEngineServer023 finds 025 without any code change).
+ */
+namespace
+{
+	template <typename T>
+	T *SOB_GetIface(ISmmAPI *ismm, bool fromServer, const char *first, const char *second = nullptr, const char *third = nullptr)
+	{
+		CreateInterfaceFn fn = fromServer ? ismm->GetServerFactory() : ismm->GetEngineFactory();
+		if (fn == nullptr)
+		{
+			return nullptr;
+		}
+
+		const char *candidates[3] = { first, second, third };
+		for (int i = 0; i < 3; i++)
+		{
+			if (candidates[i] == nullptr)
+			{
+				break;
+			}
+
+			if (void *iface = ismm->VInterfaceMatch(fn, candidates[i], 0))
+			{
+				return static_cast<T *>(iface);
+			}
+		}
+
+		return nullptr;
+	}
+}
+
+// Logs what the interface lookup actually produced (addons/sob/iface.log).
+#define SOB_IFACE_LOG(var, label) \
+	do { \
+		if (ifaceLog != nullptr) \
+		{ \
+			fprintf(ifaceLog, "  %-26s %s (0x%p)\n", label, (var) ? "OK  " : "MISS", static_cast<const void *>(var)); \
+		} \
+	} while (0)
+
+// Interface we cannot run without: report the miss the same way Metamod would.
+#define SOB_IFACE_REQUIRED(var, label) \
+	do { \
+		SOB_IFACE_LOG(var, label); \
+		if ((var) == nullptr) \
+		{ \
+			if (ifaceLog != nullptr) \
+			{ \
+				fclose(ifaceLog); \
+			} \
+			if (error && maxlen) \
+			{ \
+				ismm->Format(error, maxlen, "Could not find interface: %s", label); \
+			} \
+			return false; \
+		} \
+	} while (0)
+
+// Interface we can live without; the bot degrades instead of refusing to load.
+#define SOB_IFACE_OPTIONAL(var, label) \
+	SOB_IFACE_LOG(var, label)
+
 bool SOBPluginMeta::Load(PluginId id, ISmmAPI *ismm, char *error, std::size_t maxlen, bool late)
 {
 	extern MTRand_int32 irand;
 
 	PLUGIN_SAVEVARS()
 
-	GET_V_IFACE_CURRENT(GetEngineFactory, enginetrace, IEngineTrace, INTERFACEVERSION_ENGINETRACE_SERVER)
-	GET_V_IFACE_CURRENT(GetEngineFactory, engine, IVEngineServer, INTERFACEVERSION_VENGINESERVER)
-	GET_V_IFACE_CURRENT(GetEngineFactory, gameevents, IGameEventManager2, INTERFACEVERSION_GAMEEVENTSMANAGER2)
-	GET_V_IFACE_CURRENT(GetEngineFactory, helpers, IServerPluginHelpers, INTERFACEVERSION_ISERVERPLUGINHELPERS)
-	GET_V_IFACE_CURRENT(GetEngineFactory, icvar, ICvar, CVAR_INTERFACE_VERSION)
-	GET_V_IFACE_CURRENT(GetEngineFactory, staticpropmgr, IStaticPropMgrServer, INTERFACEVERSION_STATICPROPMGR_SERVER)
+	char ifaceLogPath[512];
+	snprintf(ifaceLogPath, sizeof(ifaceLogPath), "%s/addons/sob/iface.log", ismm->GetBaseDir());
+	FILE *ifaceLog = fopen(ifaceLogPath, "w");
+	if (ifaceLog != nullptr)
+	{
+		fprintf(ifaceLog, "SOB interface acquisition, build " __DATE__ " " __TIME__ "\n");
+	}
 
-	GET_V_IFACE_ANY(GetEngineFactory, filesystem, IFileSystem, FILESYSTEM_INTERFACE_VERSION)
+	enginetrace = SOB_GetIface<IEngineTrace>(ismm, false, INTERFACEVERSION_ENGINETRACE_SERVER);
+	SOB_IFACE_REQUIRED(enginetrace, "IEngineTrace");
 
-	GET_V_IFACE_ANY(GetServerFactory, servergameents, IServerGameEnts, INTERFACEVERSION_SERVERGAMEENTS)
-	GET_V_IFACE_ANY(GetServerFactory, server, IServerGameDLL, INTERFACEVERSION_SERVERGAMEDLL)
-	GET_V_IFACE_ANY(GetServerFactory, gameclients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS)
-	GET_V_IFACE_ANY(GetServerFactory, playerinfomanager, IPlayerInfoManager, INTERFACEVERSION_PLAYERINFOMANAGER)
+	engine = SOB_GetIface<IVEngineServer>(ismm, false, INTERFACEVERSION_VENGINESERVER);
+	SOB_IFACE_REQUIRED(engine, "IVEngineServer");
 
-	GET_V_IFACE_ANY(GetServerFactory, g_pEffects, IEffects, IEFFECTS_INTERFACE_VERSION)
-	GET_V_IFACE_ANY(GetServerFactory, g_pBotManager, IBotManager, INTERFACEVERSION_PLAYERBOTMANAGER)
-	GET_V_IFACE_ANY(GetServerFactory, servertools, IServerTools, VSERVERTOOLS_INTERFACE_VERSION)
+	gameevents = SOB_GetIface<IGameEventManager2>(ismm, false, INTERFACEVERSION_GAMEEVENTSMANAGER2, "GameEventManager003");
+	SOB_IFACE_REQUIRED(gameevents, "IGameEventManager2");
+
+	helpers = SOB_GetIface<IServerPluginHelpers>(ismm, false, INTERFACEVERSION_ISERVERPLUGINHELPERS, "ServerPluginHelpers002");
+	SOB_IFACE_REQUIRED(helpers, "IServerPluginHelpers");
+
+	icvar = SOB_GetIface<ICvar>(ismm, false, CVAR_INTERFACE_VERSION, "Cvar005");
+	SOB_IFACE_REQUIRED(icvar, "ICvar");
+
+	staticpropmgr = SOB_GetIface<IStaticPropMgrServer>(ismm, false, INTERFACEVERSION_STATICPROPMGR_SERVER, "StaticPropMgrServer003", "StaticPropMgr004");
+	SOB_IFACE_OPTIONAL(staticpropmgr, "IStaticPropMgrServer");
+
+	filesystem = SOB_GetIface<IFileSystem>(ismm, false, FILESYSTEM_INTERFACE_VERSION, "FileSystem023");
+	SOB_IFACE_REQUIRED(filesystem, "IFileSystem");
+
+	servergameents = SOB_GetIface<IServerGameEnts>(ismm, true, INTERFACEVERSION_SERVERGAMEENTS);
+	SOB_IFACE_REQUIRED(servergameents, "IServerGameEnts");
+
+	server = SOB_GetIface<IServerGameDLL>(ismm, true, INTERFACEVERSION_SERVERGAMEDLL);
+	SOB_IFACE_REQUIRED(server, "IServerGameDLL");
+
+	gameclients = SOB_GetIface<IServerGameClients>(ismm, true, INTERFACEVERSION_SERVERGAMECLIENTS);
+	SOB_IFACE_REQUIRED(gameclients, "IServerGameClients");
+
+	playerinfomanager = SOB_GetIface<IPlayerInfoManager>(ismm, true, INTERFACEVERSION_PLAYERINFOMANAGER);
+	SOB_IFACE_REQUIRED(playerinfomanager, "IPlayerInfoManager");
+
+	g_pEffects = SOB_GetIface<IEffects>(ismm, true, IEFFECTS_INTERFACE_VERSION, "Effects001");
+	SOB_IFACE_OPTIONAL(g_pEffects, "IEffects");
+
+	g_pBotManager = SOB_GetIface<IBotManager>(ismm, true, INTERFACEVERSION_PLAYERBOTMANAGER, "BotManager001");
+	SOB_IFACE_OPTIONAL(g_pBotManager, "IBotManager");
+
+	servertools = SOB_GetIface<IServerTools>(ismm, true, VSERVERTOOLS_INTERFACE_VERSION, "ServerTools004");
+	SOB_IFACE_OPTIONAL(servertools, "IServerTools");
 
 #ifndef __linux__
-	GET_V_IFACE_CURRENT(GetEngineFactory,debugoverlay, IVDebugOverlay, VDEBUG_OVERLAY_INTERFACE_VERSION)
+	debugoverlay = SOB_GetIface<IVDebugOverlay>(ismm, false, VDEBUG_OVERLAY_INTERFACE_VERSION, "DebugOverlay004");
+	SOB_IFACE_OPTIONAL(debugoverlay, "IVDebugOverlay");
 #endif
-	GET_V_IFACE_ANY(GetServerFactory, servergamedll, IServerGameDLL, INTERFACEVERSION_SERVERGAMEDLL)
-	GET_V_IFACE_ANY(GetServerFactory, gameclients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS)
+
+	servergamedll = SOB_GetIface<IServerGameDLL>(ismm, true, INTERFACEVERSION_SERVERGAMEDLL);
+	SOB_IFACE_OPTIONAL(servergamedll, "IServerGameDLL (alias)");
+
+	if (ifaceLog != nullptr)
+	{
+		fprintf(ifaceLog, "  base dir: %s\n", ismm->GetBaseDir());
+		fclose(ifaceLog);
+	}
 
 	gpGlobals = ismm->GetCGlobals();
 
