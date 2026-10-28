@@ -125,11 +125,40 @@ MSVC + Python 3 + AMBuild，详见上游 [Building SourceMod]。
 > 只改名字（直接改名无法链接、运行时也会操作错偏移）。补丁的做法是把这段慢路径
 > 实现**内联**到自己模块里，彻底不再从引擎导入该函数。
 
+> **另外两个 CS:SO 专有的坑**（v1.2 修复，改代码时别删）：
+>
+> 1. `utils/SOB_meta/bot_plugin_meta.cpp` 里覆写了 `ISmmPlugin::GetApiVersion()`，
+>    返回 `min(METAMOD_PLAPI_VERSION, 16)`。CS:SO 自带定制版
+>    `Metamod:Source 1.12.0-dev+1226`，只接受插件 API **16**，而仓库固定的
+>    metamod-source 头文件报 **17**；Metamod 在调用 `Load()` 之前就检查并拒载，
+>    且不留任何日志（`Plugin requires newer Metamod version (17 > 16)`）。
+>
+> 2. CS:SO 的 64 位引擎**改了接口名**，所以不能用标准 `GET_V_IFACE_*` 宏，
+>    而是走 `SOB_GetIface()`：查找时 `min = 0`（从 `xxx001` 往上找，吸收纯版本号变化），
+>    名字被改掉的再按 CS:SO 拼写重试。实测对照表：
+>
+>    | 标准 Source 2013 | CS:SO 2.0 |
+>    |---|---|
+>    | `GAMEEVENTSMANAGER002` | `GameEventManager003` |
+>    | `ISERVERPLUGINHELPERS001` | `ServerPluginHelpers002` |
+>    | `VEngineCvar004` | `Cvar005` |
+>    | `VFileSystem022` | `FileSystem023` |
+>    | `VSERVERTOOLS003` | `ServerTools004` |
+>    | `StaticPropMgrServer002` | `StaticPropMgrServer003` |
+>    | `VEngineServer023` | `VEngineServer025` |
+>    | `IEFFECTS001` | `Effects002` |
+>    | `VBotManager001` | `BotManager002` |
+>    | `ServerGameEnts001` | `ServerGameEnts002` |
+>
+>    每次获取结果都会写进 `addons/sob/iface.log`，排障先看这个文件。
+
 ## 常见问题
 
 | 现象 | 原因 / 解决 |
 |---|---|
 | `meta list` 里 SOB 显示失败 | 看 `addons/sob/sob_loader.log`，里面会写明原因 |
+| 控制台报 `Plugin requires newer Metamod version (N > 16)` | 旧包已知问题，v1.2 已修复（CS:SO 的 Metamod 只认插件 API 16） |
+| 控制台报 `Could not find interface: XXX` | 旧包已知问题，v1.2 已修复（CS:SO 改了引擎接口名）。若再出现，看 `addons/sob/iface.log` 里哪一项是 `MISS` |
 | 日志停在 `Unknown source engine id: N` | 新引擎 ID 未适配，需要在 `loader/loader.cpp` 里加分支 |
 | 日志写着 `FAILED to open: 找不到指定的程序` | 就是上面那个 tier0 兼容补丁没打（错误码 127） |
 | bot 加了但不动 | 没录航点，见上面「航点」一节 |
