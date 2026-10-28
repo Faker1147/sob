@@ -698,6 +698,10 @@ bool SOBPluginMeta::Load(PluginId id, ISmmAPI *ismm, char *error, std::size_t ma
 
 	SOB_Cvar_setup(g_pCVar);
 
+	// Temporary CS:SO ConVar ABI probe (writes addons/sob/cvar_probe.log).
+	extern void SOB_CvarProbe(const char *baseDir);
+	SOB_CvarProbe(ismm->GetBaseDir());
+
 	// Bot Quota Settings
 	char bq_line[128];
 
