@@ -125,6 +125,19 @@ jobs:
       working-directory: sob
       run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/patch_tier0_threadtools.ps1 -Root alliedmodders
 
+    # CS:SO's engine keeps ConVar's virtuals in a different order than the
+    # pinned HL2SDK (an extra bool virtual at slot 10, and ClampValue /
+    # ChangeStringValue before the InternalSet* helpers). The engine calls
+    # third-party ConVars through its own layout, so printing a SOB cvar used
+    # to crash the process. hl2sdk-css is patched here because this workflow
+    # builds its tier1.lib (and therefore convar.cpp) from source; the runtime
+    # vtable then matches the engine.
+    - name: Align ConVar vtable ABI (CS:SO)
+      if: runner.os == 'Windows'
+      shell: bash
+      working-directory: sob
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/patch_csso_convar_abi.ps1 -Root alliedmodders
+
     - name: Build Files
       shell: bash
       working-directory: sob
